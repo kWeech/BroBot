@@ -48,7 +48,7 @@ class music_cog(commands.Cog):
             #remove the first element as you are currently playing it
             self.music_queue.pop(0)
 
-            self.vc.play(discord.FFmpegPCMAudio(m_url, executable='C:/ffmpeg/bin/ffmpeg.exe', **self.FFMPEG_OPTIONS), after=lambda e: self.play_next())
+            self.vc.play(discord.FFmpegPCMAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next())
         else:
             self.is_playing = False
 
@@ -73,26 +73,27 @@ class music_cog(commands.Cog):
             #remove the first element as you are currently playing it
             self.music_queue.pop(0)
 
-            self.vc.play(discord.FFmpegPCMAudio(m_url, executable='C:/ffmpeg/bin/ffmpeg.exe', **self.FFMPEG_OPTIONS), after=lambda e: self.play_next())
+            self.vc.play(discord.FFmpegPCMAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next())
         else:
             self.is_playing = False
 
     @app_commands.command(name="play")
     async def play(self, interaction: discord.Interaction, query: str):
+        await interaction.response.defer(thinking = True)
         # query = " ".join(args)
         
         voice_channel = interaction.user.voice.channel
         if voice_channel is None:
             #you need to be connected so that the bot knows where to go
-            await interaction.response.send_message("Connect to a voice channel!")
+            await interaction.followup.send("Connect to a voice channel!")
         elif self.is_paused:
             self.vc.resume()
         else:
             song = self.search_yt(query)
             if type(song) == type(True):
-                await interaction.response.send_message("Could not download the song. Incorrect format try another keyword. This could be due to playlist or a livestream format.")
+                await interaction.followup.send("Could not download the song. Incorrect format try another keyword. This could be due to playlist or a livestream format.")
             else:
-                await interaction.response.send_message("Song added to the queue")
+                await interaction.followup.send("Song added to the queue")
                 self.music_queue.append([song, voice_channel])
                 
                 if self.is_playing == False:
