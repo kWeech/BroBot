@@ -146,9 +146,9 @@ class music_cog(commands.Cog):
         self.music_queue = []
         await interaction.response.send_message("Music queue cleared")
 
-    # @commands.command(name="leave", aliases=["disconnect", "l", "d"], help="Kick the bot from VC")
-    # async def dc(self, interaction: discord.Interaction):
-    #     self.is_playing = False
-    #     self.is_paused = False
-    #     await self.vc.disconnect()
-    #     await interaction.response.send_message("Disconnected")
+    @app_commands.command(name="disconnect")
+    async def dc(self, interaction: discord.Interaction):
+        self.is_playing = False
+        self.is_paused = False
+        await self.vc.disconnect()
+        await interaction.response.send_message("Disconnected")
