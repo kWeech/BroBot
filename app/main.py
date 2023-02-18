@@ -4,7 +4,12 @@ from discord import app_commands
 
 from drafter_cog import drafter_cog
 from music_cog import music_cog
+from chat_cog import chat_cog
+from image_cog import image_cog
 
+from dotenv import load_dotenv
+load_dotenv()
+import os
 
 client = commands.Bot(command_prefix = '.', intents=discord.Intents.all())
 
@@ -15,10 +20,13 @@ async def on_ready():
   try:
     await client.add_cog(drafter_cog(client))
     await client.add_cog(music_cog(client))  
+    await client.add_cog(chat_cog(client))  
+    await client.add_cog(image_cog(client))  
+
     synced = await client.tree.sync()
     print("syncing")
     print("# of synced commands: ", len(synced))
   except Exception as e:
     print(e)
 
-client.run("MTA3MTU0Njc2OTE5Mzg0NDgzNw.GCrRBs.0JgAt5xA-y0Gb_n9eeEooAiZMon2EJ-6tMdbCw")
+client.run(os.environ["DISCORD_BOT_TOKEN"])

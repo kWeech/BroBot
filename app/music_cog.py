@@ -1,24 +1,9 @@
-# import discord
-# from discord.ext import commands
-# from discord import app_commands
-
-# class music_cog(commands.Cog):
-#   def __init__(self, client: commands.Bot):
-#     self.client = client
-
-#   @app_commands.command(name = "play", description="test")
-#   async def play(self, interaction: discord.Interaction):
-#     await interaction.response.send_message(content="hello")
-
-# async def setup(client: commands.Bot) -> None:
-#   await client.add_cog(music_cog(client))
-
 from ast import alias
 import discord
 from discord.ext import commands
 from discord import app_commands
 
-from youtube_dl import YoutubeDL
+from yt_dlp import YoutubeDL
 
 class music_cog(commands.Cog):
     def __init__(self, bot):
@@ -30,6 +15,14 @@ class music_cog(commands.Cog):
 
         # 2d array containing [song, channel]
         self.music_queue = []
+        self.ydl_opts = {
+            'format': 'm4a/bestaudio/best', 'noplaylist': True,
+            # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
+            'postprocessors': [{  # Extract audio using ffmpeg
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'm4a',
+            }]
+        }   
         self.YDL_OPTIONS = {'format': 'bestaudio', 'noplaylist':'True'}
         self.FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
@@ -37,13 +30,13 @@ class music_cog(commands.Cog):
 
      #searching the item on youtube
     def search_yt(self, item):
-        with YoutubeDL(self.YDL_OPTIONS) as ydl:
+        with YoutubeDL(self.ydl_opts) as ydl:
             try: 
                 info = ydl.extract_info("ytsearch:%s" % item, download=False)['entries'][0]
             except Exception: 
                 return False
-
-        return {'source': info['formats'][0]['url'], 'title': info['title']}
+        print(info['url'], info['title']) #debug
+        return {'source': info['url'], 'title': info['title']}
 
     def play_next(self):
         if len(self.music_queue) > 0:
@@ -54,7 +47,7 @@ class music_cog(commands.Cog):
 
             #remove the first element as you are currently playing it
             self.music_queue.pop(0)
-# , executable="C:/ffmpeg/bin/ffmpeg.exe"
+
             self.vc.play(discord.FFmpegPCMAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next())
         else:
             self.is_playing = False
@@ -105,6 +98,7 @@ class music_cog(commands.Cog):
                 if self.is_playing == False:
                     await self.play_music(interaction.response)
 
+
     @app_commands.command(name="pause")
     async def pause(self, interaction: discord.Interaction):
         if self.is_playing:
@@ -152,9 +146,9 @@ class music_cog(commands.Cog):
         self.music_queue = []
         await interaction.response.send_message("Music queue cleared")
 
-    @commands.command(name="leave", aliases=["disconnect", "l", "d"], help="Kick the bot from VC")
-    async def dc(self, interaction: discord.Interaction):
-        self.is_playing = False
-        self.is_paused = False
-        await self.vc.disconnect()
-        await interaction.response.send_message("Disconnected")
+    # @commands.command(name="leave", aliases=["disconnect", "l", "d"], help="Kick the bot from VC")
+    # async def dc(self, interaction: discord.Interaction):
+    #     self.is_playing = False
+    #     self.is_paused = False
+    #     await self.vc.disconnect()
+    #     await interaction.response.send_message("Disconnected")
