@@ -20,13 +20,12 @@ class drafter_cog(commands.Cog):
   @app_commands.command(name = "draft", description="test")
   @app_commands.choices(game=[app_commands.Choice(name="Civ", value="civ"), app_commands.Choice(name="Armello", value="armello"), app_commands.Choice(name="Northgard", value="ng")])
   async def draft(self, interaction: discord.Interaction, game: app_commands.Choice[str], num_players: int, num_choices: int):
-    match game.value:
-      case "civ":
-        res = self.drafter(self.civ_list, num_players, num_choices)
-      case "armello":
-        res = self.drafter(self.armello_list, num_players, num_choices)
-      case "ng":
-        res = self.drafter(self.ng_list, num_players, num_choices)
+    if game.value == "civ":
+      res = self.drafter(self.civ_list, num_players, num_choices)
+    elif game.value == "armello":
+      res = self.drafter(self.armello_list, num_players, num_choices)
+    elif game.value == "ng":
+      res = self.drafter(self.ng_list, num_players, num_choices)
     count = 1
     str_out = "Game: " + game.name + " | Players: " + str(num_players) + " | Choices: " + str(num_choices) + "\n\n"
     for item in res:
