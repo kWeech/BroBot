@@ -3,6 +3,24 @@ BroBot is a Discord bot that drafts picks for my server's favourite games, plays
 
 Currently being hosted on a Raspberry Pi
 
+## Commands
+
+### Gaming
+- /draft -> drafts random picks for players for Lekmod version of Civ5, Northgard, and Armello
+
+### OpenAI
+- /chat -> uses openAI's chat NLP ai to respond to prompt
+- /image -> uses openAI's DALLE to create AI images based on the given prompt
+
+### Music/Audio
+- /play -> takes a query, searches it on YouTube and plays the first search result's audio in the voice channel you are in
+- /skip -> skips song
+- /queue -> shows song queue
+- /pause -> pauses music
+- /resume -> resumes music
+- /clear -> clears queue
+- /disconnect -> disconnects bot from voice channel
+
 ## Required Libraries
 - discord
 - FFMPEG
