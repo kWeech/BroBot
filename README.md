@@ -3,7 +3,7 @@ BroBot is a Discord bot that drafts picks for my server's favourite games, plays
 
 Currently being hosted on a Raspberry Pi
 
-##Required Libraries
+## Required Libraries
 - discord
 - FFMPEG
 - PyNaCl
@@ -11,7 +11,7 @@ Currently being hosted on a Raspberry Pi
 - openai
 - yt_dlp
 
-##Setup
+## Setup
 - install required libraries
 - install FFMPEG and add it to your path
 - setup .env file with personal OPENAI_API_KEY and DISCORD_BOT_TOKEN
