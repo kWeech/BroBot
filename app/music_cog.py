@@ -16,14 +16,14 @@ class music_cog(commands.Cog):
         # 2d array containing [song, channel]
         self.music_queue = []
         self.ydl_opts = {
-            'format': 'm4a/bestaudio/best', 'noplaylist': True,
+            'format': 'm4a/bestaudio/best',
+            'noplaylist': False,
             # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
             'postprocessors': [{  # Extract audio using ffmpeg
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'm4a',
-            }]
+            }],
         }   
-        self.YDL_OPTIONS = {'format': 'bestaudio', 'noplaylist':'True'}
         self.FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
         self.vc = None
@@ -31,12 +31,24 @@ class music_cog(commands.Cog):
      #searching the item on youtube
     def search_yt(self, item):
         with YoutubeDL(self.ydl_opts) as ydl:
-            try: 
-                info = ydl.extract_info("ytsearch:%s" % item, download=False)['entries'][0]
+            try:
+                print("item")
+                print(item)
+                print("end of item")
+                if "list" in item:
+                    # This is a playlist
+                    info = ydl.extract_info(item, download=False)
+                    playlist = []
+                    for entry in info['entries']:
+                        playlist.append({'source': entry['url'], 'title': entry['title']})
+                    return playlist
+                else:
+                    # This is a single video
+                    info = ydl.extract_info("ytsearch:%s" % item, download=False)['entries'][0]
+                    return [{'source': info['url'], 'title': info['title']}]
             except Exception: 
                 return False
-        print(info['url'], info['title']) #debug
-        return {'source': info['url'], 'title': info['title']}
+
 
     def play_next(self):
         if len(self.music_queue) > 0:
@@ -76,29 +88,46 @@ class music_cog(commands.Cog):
             self.vc.play(discord.FFmpegPCMAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next())
         else:
             self.is_playing = False
-
+    
     @app_commands.command(name="play")
     async def play(self, interaction: discord.Interaction, query: str):
-        await interaction.response.defer(thinking = True)
-        # query = " ".join(args)
-        
+        await interaction.response.defer(thinking=True)
+
         voice_channel = interaction.user.voice.channel
         if voice_channel is None:
-            #you need to be connected so that the bot knows where to go
             await interaction.followup.send("Connect to a voice channel!")
-        elif self.is_paused:
-            self.vc.resume()
         else:
-            song = self.search_yt(query)
-            if type(song) == type(True):
-                await interaction.followup.send("Could not download the song. Incorrect format try another keyword. This could be due to playlist or a livestream format.")
+            songlist = self.search_yt(query)
+            if type(songlist) == type(True) or not songlist:
+                await interaction.followup.send("Could not download the query. Incorrect format or no songs found.")
             else:
-                await interaction.followup.send("Song added to the queue")
-                self.music_queue.append([song, voice_channel])
-                
-                if self.is_playing == False:
-                    await self.play_music(interaction.response)
+                print(songlist)
+                print(len(songlist))
+                for song in songlist:
+                    self.music_queue.append([song, voice_channel])
 
+                if not self.is_playing:
+                    await self.play_music(interaction.response)
+                await interaction.followup.send(f"Added {len(songlist)} songs to queue.")
+
+    @app_commands.command(name="play_next")
+    async def playnext(self, interaction: discord.Interaction, query: str):
+        await interaction.response.defer(thinking=True)
+
+        voice_channel = interaction.user.voice.channel
+        if voice_channel is None:
+            await interaction.followup.send("Connect to a voice channel!")
+        else:
+            songlist = self.search_yt(query)
+            if type(songlist) == type(True) or not songlist:
+                await interaction.followup.send("Could not download the query. Incorrect format or no songs found.")
+            else:
+                for song in songlist:
+                    self.music_queue.insert(0, [song, voice_channel])  # Insert song as the next one to play
+
+                if not self.is_playing:
+                    await self.play_music(interaction.response)
+                await interaction.followup.send(f"Added {len(songlist)} songs next in queue.")
 
     @app_commands.command(name="pause")
     async def pause(self, interaction: discord.Interaction):
@@ -120,12 +149,11 @@ class music_cog(commands.Cog):
 
     @app_commands.command(name="skip")
     async def skip(self, interaction: discord.Interaction):
-        if self.vc != None and self.vc:
+        if self.vc != None and self.vc.is_playing():
             self.vc.stop()
-            #try to play next in the queue if it exists
-            await self.play_music(interaction.response)
             await interaction.response.send_message("Song skipped")
-
+        else:
+            await interaction.response.send_message("No song is currently playing")
 
     @app_commands.command(name="queue")
     async def queue(self, interaction: discord.Interaction):
@@ -151,5 +179,6 @@ class music_cog(commands.Cog):
     async def dc(self, interaction: discord.Interaction):
         self.is_playing = False
         self.is_paused = False
+        self.music_queue = []
         await self.vc.disconnect()
         await interaction.response.send_message("Disconnected")

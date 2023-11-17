@@ -4,8 +4,7 @@ from discord import app_commands
 
 from drafter_cog import drafter_cog
 from music_cog import music_cog
-from chat_cog import chat_cog
-from image_cog import image_cog
+from open_ai_cog import open_ai_cog
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -20,8 +19,7 @@ async def on_ready():
   try:
     await client.add_cog(drafter_cog(client))
     await client.add_cog(music_cog(client))  
-    await client.add_cog(chat_cog(client))  
-    await client.add_cog(image_cog(client))  
+    await client.add_cog(open_ai_cog(client))  
 
     synced = await client.tree.sync()
     print("syncing")
