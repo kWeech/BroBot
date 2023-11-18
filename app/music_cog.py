@@ -2,8 +2,8 @@ from ast import alias
 import discord
 from discord.ext import commands
 from discord import app_commands
-
 from yt_dlp import YoutubeDL
+import random
 
 class music_cog(commands.Cog):
     def __init__(self, bot):
@@ -89,8 +89,56 @@ class music_cog(commands.Cog):
         else:
             self.is_playing = False
     
+    # @app_commands.command(name="play")
+    # async def play(self, interaction: discord.Interaction, query: str):
+    #     await interaction.response.defer(thinking=True)
+
+    #     voice_channel = interaction.user.voice.channel
+    #     if voice_channel is None:
+    #         await interaction.followup.send("Connect to a voice channel!")
+    #     else:
+    #         songlist = self.search_yt(query)
+    #         if type(songlist) == type(True) or not songlist:
+    #             await interaction.followup.send("Could not download the query. Incorrect format or no songs found.")
+    #         else:
+    #             print(songlist)
+    #             print(len(songlist))
+    #             for song in songlist:
+    #                 self.music_queue.append([song, voice_channel])
+
+    #             if not self.is_playing:
+    #                 await self.play_music(interaction.response)
+    #             await interaction.followup.send(f"Added {len(songlist)} songs to queue.")
+    # @app_commands.command(name="play")
+    # @app_commands.describe(query='The song you want to play', play_next='Set to True to play this song next')
+    # async def play(self, interaction: discord.Interaction, query: str, play_next: bool = False):
+    #     await interaction.response.defer(thinking=True)
+
+    #     voice_channel = interaction.user.voice.channel
+    #     if voice_channel is None:
+    #         await interaction.followup.send("Connect to a voice channel!")
+    #     else:
+    #         songlist = self.search_yt(query)
+    #         if type(songlist) == type(True) or not songlist:
+    #             await interaction.followup.send("Could not download the query. Incorrect format or no songs found.")
+    #         else:
+    #             if play_next:
+    #                 # Insert the songs to play next in the queue
+    #                 for song in reversed(songlist):
+    #                     self.music_queue.insert(0, [song, voice_channel])
+    #                 message = f"Added {len(songlist)} song(s) to play next."
+    #             else:
+    #                 # Add the songs to the end of the queue
+    #                 for song in songlist:
+    #                     self.music_queue.append([song, voice_channel])
+    #                 message = f"Added {len(songlist)} song(s) to the queue."
+
+    #             if not self.is_playing:
+    #                 await self.play_music(interaction.response)
+    #             await interaction.followup.send(message)
     @app_commands.command(name="play")
-    async def play(self, interaction: discord.Interaction, query: str):
+    @app_commands.describe(query='The song you want to play', play_next='Set to True to play this song next', shuffle='Set to True to shuffle the playlist')
+    async def play(self, interaction: discord.Interaction, query: str, play_next: bool = False, shuffle: bool = False):
         await interaction.response.defer(thinking=True)
 
         voice_channel = interaction.user.voice.channel
@@ -101,14 +149,26 @@ class music_cog(commands.Cog):
             if type(songlist) == type(True) or not songlist:
                 await interaction.followup.send("Could not download the query. Incorrect format or no songs found.")
             else:
-                print(songlist)
-                print(len(songlist))
-                for song in songlist:
-                    self.music_queue.append([song, voice_channel])
+                # Shuffle the playlist if the shuffle flag is set
+                if shuffle:
+                    random.shuffle(songlist)
+
+                if play_next:
+                    # Insert the songs to play next in the queue
+                    for song in reversed(songlist):
+                        self.music_queue.insert(0, [song, voice_channel])
+                    message = f"Shuffled and added {len(songlist)} song(s) to play next."
+                else:
+                    # Add the songs to the end of the queue
+                    for song in songlist:
+                        self.music_queue.append([song, voice_channel])
+                    message = f"Shuffled and added {len(songlist)} song(s) to the queue."
 
                 if not self.is_playing:
                     await self.play_music(interaction.response)
-                await interaction.followup.send(f"Added {len(songlist)} songs to queue.")
+                await interaction.followup.send(message)
+
+
 
     @app_commands.command(name="play_next")
     async def playnext(self, interaction: discord.Interaction, query: str):

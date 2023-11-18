@@ -19,7 +19,7 @@ async def on_ready():
   try:
     await client.add_cog(drafter_cog(client))
     await client.add_cog(music_cog(client))  
-    await client.add_cog(open_ai_cog(client))  
+    # await client.add_cog(open_ai_cog(client))  
 
     synced = await client.tree.sync()
     print("syncing")

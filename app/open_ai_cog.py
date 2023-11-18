@@ -47,6 +47,3 @@ class open_ai_cog(commands.Cog):
   async def chat(self, interaction: discord.Interaction, text: str):
     await interaction.response.defer(thinking = True)
     await interaction.followup.send("*" + str(interaction.user.name) + ": " + text + "*\n\n" + self.chat_gpt_api(text))
-
-# async def setup(client: commands.Bot) -> None:
-#   await client.add_cog(open_ai_cog(client))
