@@ -242,3 +242,16 @@ class music_cog(commands.Cog):
         self.music_queue = []
         await self.vc.disconnect()
         await interaction.response.send_message("Disconnected")
+    
+    @app_commands.command(name="shuffle")
+    async def shuffle(self, interaction: discord.Interaction):
+        # Check if there are songs in the queue
+        if not self.music_queue:
+            await interaction.response.send_message("The music queue is empty, nothing to shuffle.")
+            return
+
+        # Shuffling the music queue
+        random.shuffle(self.music_queue)
+        
+        # Inform the user
+        await interaction.response.send_message("Music queue has been shuffled.")
