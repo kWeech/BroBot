@@ -4,6 +4,7 @@ from discord.ext import commands
 from discord import app_commands
 from yt_dlp import YoutubeDL
 import random
+import asyncio
 
 class music_cog(commands.Cog):
     def __init__(self, bot):
@@ -18,6 +19,7 @@ class music_cog(commands.Cog):
         self.ydl_opts = {
             'format': 'm4a/bestaudio/best',
             'noplaylist': False,
+            'ignoreerrors': True,
             # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
             'postprocessors': [{  # Extract audio using ffmpeg
                 'key': 'FFmpegExtractAudio',
@@ -32,23 +34,27 @@ class music_cog(commands.Cog):
     def search_yt(self, item):
         with YoutubeDL(self.ydl_opts) as ydl:
             try:
-                print("item")
-                print(item)
-                print("end of item")
+                # Check if the item is a playlist
                 if "list" in item:
-                    # This is a playlist
                     info = ydl.extract_info(item, download=False)
                     playlist = []
                     for entry in info['entries']:
-                        playlist.append({'source': entry['url'], 'title': entry['title']})
+                        try:
+                            # Try extracting information for each video in the playlist
+                            video_info = ydl.extract_info(entry['webpage_url'], download=False)
+                            playlist.append({'source': video_info['url'], 'title': video_info['title']})
+                            print(f"Added {video_info['title']} to the queue")
+                        except Exception as e:
+                            print(f"Error downloading song from playlist: {e}")
+                            continue  # Skip to the next song if there's an error
                     return playlist
                 else:
-                    # This is a single video
-                    info = ydl.extract_info("ytsearch:%s" % item, download=False)['entries'][0]
+                    # Processing for a single video
+                    info = ydl.extract_info(f"ytsearch:{item}", download=False)['entries'][0]
                     return [{'source': info['url'], 'title': info['title']}]
-            except Exception: 
+            except Exception as e:
+                print(f"Error processing item: {e}")
                 return False
-
 
     def play_next(self):
         if len(self.music_queue) > 0:
@@ -88,6 +94,26 @@ class music_cog(commands.Cog):
             self.vc.play(discord.FFmpegPCMAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next())
         else:
             self.is_playing = False
+    
+    async def async_add_songs(self, interaction, query, voice_channel, play_next, shuffle):
+        songlist = self.search_yt(query)
+        if type(songlist) == type(True) or not songlist:
+            await interaction.followup.send("Could not download the query. Incorrect format or no songs found.")
+            return
+
+        if shuffle:
+            random.shuffle(songlist)
+
+        # Add songs to the queue and inform the user
+        for song in songlist:
+            if play_next:
+                self.music_queue.insert(0, [song, voice_channel])
+            else:
+                self.music_queue.append([song, voice_channel])
+            await interaction.followup.send(f"Added {song['title']} to the queue.")
+
+        if not self.is_playing:
+            await self.play_music(interaction.response)
     
     # @app_commands.command(name="play")
     # async def play(self, interaction: discord.Interaction, query: str):
@@ -139,56 +165,17 @@ class music_cog(commands.Cog):
     @app_commands.command(name="play")
     @app_commands.describe(query='The song you want to play', play_next='Set to True to play this song next', shuffle='Set to True to shuffle the playlist')
     async def play(self, interaction: discord.Interaction, query: str, play_next: bool = False, shuffle: bool = False):
-        await interaction.response.defer(thinking=True)
-
         voice_channel = interaction.user.voice.channel
         if voice_channel is None:
             await interaction.followup.send("Connect to a voice channel!")
-        else:
-            songlist = self.search_yt(query)
-            if type(songlist) == type(True) or not songlist:
-                await interaction.followup.send("Could not download the query. Incorrect format or no songs found.")
-            else:
-                # Shuffle the playlist if the shuffle flag is set
-                if shuffle:
-                    random.shuffle(songlist)
+            return
 
-                if play_next:
-                    # Insert the songs to play next in the queue
-                    for song in reversed(songlist):
-                        self.music_queue.insert(0, [song, voice_channel])
-                    message = f"Shuffled and added {len(songlist)} song(s) to play next."
-                else:
-                    # Add the songs to the end of the queue
-                    for song in songlist:
-                        self.music_queue.append([song, voice_channel])
-                    message = f"Shuffled and added {len(songlist)} song(s) to the queue."
+        # Respond immediately to avoid timeout
+        await interaction.response.send_message("Adding songs to the queue...")
 
-                if not self.is_playing:
-                    await self.play_music(interaction.response)
-                await interaction.followup.send(message)
-
-
-
-    @app_commands.command(name="play_next")
-    async def playnext(self, interaction: discord.Interaction, query: str):
-        await interaction.response.defer(thinking=True)
-
-        voice_channel = interaction.user.voice.channel
-        if voice_channel is None:
-            await interaction.followup.send("Connect to a voice channel!")
-        else:
-            songlist = self.search_yt(query)
-            if type(songlist) == type(True) or not songlist:
-                await interaction.followup.send("Could not download the query. Incorrect format or no songs found.")
-            else:
-                for song in songlist:
-                    self.music_queue.insert(0, [song, voice_channel])  # Insert song as the next one to play
-
-                if not self.is_playing:
-                    await self.play_music(interaction.response)
-                await interaction.followup.send(f"Added {len(songlist)} songs next in queue.")
-
+        # Start the asynchronous process of adding songs
+        asyncio.create_task(self.async_add_songs(interaction, query, voice_channel, play_next, shuffle))
+    
     @app_commands.command(name="pause")
     async def pause(self, interaction: discord.Interaction):
         if self.is_playing:
@@ -213,6 +200,7 @@ class music_cog(commands.Cog):
             self.vc.stop()
             await interaction.response.send_message("Song skipped")
         else:
+            await self.resume(interaction)
             await interaction.response.send_message("No song is currently playing")
 
     @app_commands.command(name="queue")
