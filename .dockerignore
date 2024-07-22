@@ -1,0 +1,36 @@
+# Ignore documentation and Markdown files
+README.md
+
+# Python cache directories
+**/__pycache__
+
+# Environment files
+app/.env
+
+# Ignore bytecode compiled files
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore all log, csv, and txt files
+*.log
+*.csv
+*.txt
+
+# Ignore Git and version control
+.git
+.gitignore
+
+# Ignore other unnecessary files
+.DS_Store
+node_modules
+npm-debug.log
+
+# Ignore build and test directories
+build/
+dist/
+tests/
+coverage/
+
+# Ignore user-specific VS Code settings
+.vscode/
