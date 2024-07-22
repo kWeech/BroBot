@@ -17,6 +17,9 @@ app/.env
 *.csv
 *.txt
 
+# But keep requirements.txt
+!requirements.txt
+
 # Ignore Git and version control
 .git
 .gitignore
