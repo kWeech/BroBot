@@ -1,8 +1,6 @@
 # BroBot
 
-BroBot is a Discord bot that drafts picks for my server's favourite games, plays music in voice channels via YouTube, uses openai's APIs to respond to chat messages as an ai and generate ai images.
-
-Currently being hosted on a Raspberry Pi
+BroBot is a Discord bot that drafts picks for games, plays music in voice channels via YouTube, uses openai's APIs to respond to chat messages and create images.
 
 ## Commands
 
