@@ -1,16 +1,15 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 
+# from open_ai_cog import open_ai_cog
 from drafter_cog import drafter_cog
 from music_cog import music_cog
-from open_ai_cog import open_ai_cog
 
 from dotenv import load_dotenv
 load_dotenv()
 import os
 
-client = commands.Bot(command_prefix = '.', intents=discord.Intents.all())
+client = commands.Bot(command_prefix = '.', intents=discord.Intents.all(), max_mesages=None)
 
 
 @client.event
