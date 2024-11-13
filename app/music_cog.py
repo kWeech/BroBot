@@ -20,41 +20,63 @@ class music_cog(commands.Cog):
             'format': 'm4a/bestaudio/best',
             'noplaylist': False,
             'ignoreerrors': True,
-            # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
-            'postprocessors': [{  # Extract audio using ffmpeg
+            'extract_flat': False,  # Ensure full info is extracted
+            'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'm4a',
             }],
-        }   
+        }
+
         self.FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
         self.vc = None
-
-     #searching the item on youtube
-    def search_yt(self, item):
+        
+    def _blocking_search_yt(self, item):
         with YoutubeDL(self.ydl_opts) as ydl:
-            try:
-                # Check if the item is a playlist
-                if "list" in item:
-                    info = ydl.extract_info(item, download=False)
-                    playlist = []
-                    for entry in info['entries']:
-                        try:
-                            # Try extracting information for each video in the playlist
-                            video_info = ydl.extract_info(entry['webpage_url'], download=False)
-                            playlist.append({'source': video_info['url'], 'title': video_info['title']})
-                            print(f"Added {video_info['title']} to the queue")
-                        except Exception as e:
-                            print(f"Error downloading song from playlist: {e}")
-                            continue  # Skip to the next song if there's an error
-                    return playlist
-                else:
-                    # Processing for a single video
-                    info = ydl.extract_info(f"ytsearch:{item}", download=False)['entries'][0]
-                    return [{'source': info['url'], 'title': info['title']}]
-            except Exception as e:
-                print(f"Error processing item: {e}")
-                return False
+            if "list" in item:
+                info = ydl.extract_info(item, download=False)
+                playlist = []
+                for entry in info['entries']:
+                    if entry:  # Ensure entry is not None
+                        playlist.append({'source': entry['url'], 'title': entry['title']})
+                        print(f"Added {entry['title']} to the queue")
+                return playlist
+            else:
+                info = ydl.extract_info(f"ytsearch:{item}", download=False)
+                info = info['entries'][0]
+                return [{'source': info['url'], 'title': info['title']}]
+
+        
+    async def search_yt(self, item):
+        loop = asyncio.get_event_loop()
+        try:
+            result = await loop.run_in_executor(None, self._blocking_search_yt, item)
+            return result
+        except Exception as e:
+            print(f"Error processing item: {e}")
+            return []
+
+
+    #  #searching the item on youtube
+    # def search_yt(self, item):
+    #     with YoutubeDL(self.ydl_opts) as ydl:
+    #         try:
+    #             # Check if the item is a playlist
+    #             if "list" in item:
+    #                 info = ydl.extract_info(item, download=False)
+    #                 playlist = []
+    #                 for entry in info['entries']:
+    #                     if entry:  # Ensure entry is not None
+    #                         playlist.append({'source': entry['url'], 'title': entry['title']})
+    #                         print(f"Added {entry['title']} to the queue")
+    #                 return playlist
+    #             else:
+    #                 # Processing for a single video
+    #                 info = ydl.extract_info(f"ytsearch:{item}", download=False)['entries'][0]
+    #                 return [{'source': info['url'], 'title': info['title']}]
+    #         except Exception as e:
+    #             print(f"Error processing item: {e}")
+    #             return False
 
     def play_next(self):
         if len(self.music_queue) > 0:
@@ -96,7 +118,7 @@ class music_cog(commands.Cog):
             self.is_playing = False
     
     async def async_add_songs(self, interaction, query, voice_channel, play_next, shuffle):
-        songlist = self.search_yt(query)
+        songlist = await self.search_yt(query)
         if type(songlist) == type(True) or not songlist:
             await interaction.followup.send("Could not download the query. Incorrect format or no songs found.")
             return
@@ -105,13 +127,25 @@ class music_cog(commands.Cog):
             random.shuffle(songlist)
 
         # Add songs to the queue and inform the user
+        added_songs = []
         for song in songlist:
             if play_next:
                 self.music_queue.insert(0, [song, voice_channel])
             else:
                 self.music_queue.append([song, voice_channel])
-            await interaction.followup.send(f"Added {song['title']} to the queue.")
+            added_songs.append(song['title'])
+            
+       # Set a limit on how many song titles to display
+        max_display = 10  # Adjust this number as needed
+        displayed_songs = added_songs[:max_display]
+        songs_list = '\n'.join(displayed_songs)
+        total_songs = len(added_songs)
 
+        if total_songs > max_display:
+            songs_list += f"\n...and {total_songs - max_display} more songs."
+
+        await interaction.followup.send(f"Added {total_songs} songs to the queue:\n{songs_list}")
+        
         if not self.is_playing:
             await self.play_music(interaction.response)
         
@@ -136,8 +170,13 @@ class music_cog(commands.Cog):
             self.is_paused = True
             self.vc.pause()
             await interaction.response.send_message("Music paused")
+        elif len(self.music_queue) > 0:
+            self.is_paused = False
+            self.is_playing = True
+            self.vc.resume()
+            await interaction.response.send_message("Music resumed")
         else:
-            await interaction.response.send_message("Nothing is playing")
+            await interaction.response.send_message("No song is currently playing")
 
     @app_commands.command(name="resume")
     async def resume(self, interaction: discord.Interaction):
