@@ -123,7 +123,11 @@ class music_cog(commands.Cog):
             await interaction.followup.send("Could not download the query. Incorrect format or no songs found.")
             return
 
-        if shuffle:
+        # Limit playlist to 60 random songs if it's longer
+        if len(songlist) > 60:
+            songlist = random.sample(songlist, 60)
+            await interaction.followup.send("Playlist was larger than 60 songs. Randomly selected 60 songs to add.")
+        elif shuffle:
             random.shuffle(songlist)
 
         # Add songs to the queue and inform the user

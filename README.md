@@ -1,17 +1,8 @@
-# BroBot
-
-BroBot is a Discord bot that drafts picks for games, plays music in voice channels via YouTube, uses openai's APIs to respond to chat messages and create images.
-
 ## Commands
 
 ### Gaming
 
-- /draft -> drafts random picks for players for Lekmod version of Civ5, Northgard, and Armello
-
-### OpenAI
-
-- /chat -> uses OpenAI's chat NLP ai to respond to prompt
-- /image -> uses OpenAI's DALLE to create AI images based on the given prompt
+- /draft
 
 ### Music/Audio
 
@@ -27,14 +18,49 @@ BroBot is a Discord bot that drafts picks for games, plays music in voice channe
 
 - discord
 - FFMPEG
-- PyNaCl
 - python-dotenv
-- openai
 - yt_dlp
 
 ## Setup
 
 - install required libraries
 - install FFMPEG and add it to your path
-- setup .env file with personal OPENAI_API_KEY and DISCORD_BOT_TOKEN
+- setup .env file with personal DISCORD_BOT_TOKEN
 - run main.py
+
+### Docker
+
+#### Building the Image
+
+```bash
+docker build -t brobot .
+```
+
+#### Running Options
+
+1. **Basic Docker Run**
+
+```bash
+docker run --env-file .env brobot
+```
+
+2. **Docker Compose**
+
+```bash
+docker-compose up
+```
+
+3. **Docker Hub Deployment**
+
+```bash
+# Login to Docker Hub
+docker login
+
+# Tag your image with your Docker Hub username
+docker tag brobot yourusername/brobot
+
+# Push to Docker Hub
+docker push yourusername/brobot
+```
+
+Note: Make sure your `.env` file is in the same directory as where you run the Docker commands.
