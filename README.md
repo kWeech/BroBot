@@ -20,6 +20,7 @@
 - FFMPEG
 - python-dotenv
 - yt_dlp
+- pynacl
 
 ## Setup
 
