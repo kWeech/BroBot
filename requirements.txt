@@ -1,4 +1,4 @@
 discord.py==2.6.4
 python-dotenv==1.1.1
-yt_dlp==2025.09.26
-pynacl==1.6.0
+yt-dlp[default]==2025.11.12
+pynacl==1.6.1

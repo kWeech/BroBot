@@ -28,7 +28,10 @@ class music_cog(commands.Cog):
             'playlistend': 50,  # Limit playlist extraction to 50 items
         }
 
-        self.FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+        self.FFMPEG_OPTIONS = {
+            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+            'options': '-vn -bufsize 512k'
+        }
 
         self.vc = None
         
@@ -153,13 +156,16 @@ class music_cog(commands.Cog):
     @app_commands.command(name="play")
     @app_commands.describe(query='The song you want to play', play_next='Set to True to play this song next', shuffle='Set to True to shuffle the playlist')
     async def play(self, interaction: discord.Interaction, query: str, play_next: bool = False, shuffle: bool = False):
+        # Defer immediately to avoid timeout (within 3 seconds)
+        await interaction.response.defer()
+        
         voice_channel = interaction.user.voice.channel
         if voice_channel is None:
             await interaction.followup.send("Connect to a voice channel!")
             return
 
-        # Respond immediately to avoid timeout
-        await interaction.response.send_message("Adding songs to the queue...")
+        # Send initial message
+        await interaction.followup.send("Adding songs to the queue...")
 
         # Start the asynchronous process of adding songs
         asyncio.create_task(self.async_add_songs(interaction, query, voice_channel, play_next, shuffle))
@@ -193,7 +199,6 @@ class music_cog(commands.Cog):
             self.vc.stop()
             await interaction.response.send_message("Song skipped")
         else:
-            await self.resume(interaction)
             await interaction.response.send_message("No song is currently playing")
 
     @app_commands.command(name="queue")
@@ -221,8 +226,11 @@ class music_cog(commands.Cog):
         self.is_playing = False
         self.is_paused = False
         self.music_queue = []
-        await self.vc.disconnect()
-        await interaction.response.send_message("Disconnected")
+        if self.vc != None and self.vc.is_connected():
+            await self.vc.disconnect()
+            await interaction.response.send_message("Disconnected")
+        else:
+            await interaction.response.send_message("Not connected to a voice channel")
     
     @app_commands.command(name="shuffle")
     async def shuffle(self, interaction: discord.Interaction):

@@ -1,13 +1,17 @@
 # Use a specific version of the Python base image
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Install FFmpeg
+# Install FFmpeg and dependencies for Deno
 RUN apt-get update \
-    && apt-get install -y ffmpeg \
+    && apt-get install -y ffmpeg curl unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Deno (recommended for yt-dlp EJS)
+RUN curl -fsSL https://deno.land/install.sh | sh \
+    && mv /root/.deno/bin/deno /usr/local/bin/deno
 
 # Copy the src directory and requirements.txt into the container
 COPY app/ /app/
