@@ -1,9 +1,5 @@
 ## Commands
 
-### Gaming
-
-- /draft
-
 ### Music/Audio
 
 - /play -> takes a query, searches it on YouTube and plays the first search result's audio in the voice channel you are in
