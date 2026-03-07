@@ -1,4 +1,4 @@
-discord.py==2.6.4
+discord.py[voice]==2.7.1
+davey>=0.1.4
 python-dotenv==1.1.1
-yt-dlp[default]==2026.02.04
-pynacl==1.6.1
+yt-dlp[default]==2026.03.03

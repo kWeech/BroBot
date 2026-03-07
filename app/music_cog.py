@@ -159,10 +159,10 @@ class music_cog(commands.Cog):
         # Defer immediately to avoid timeout (within 3 seconds)
         await interaction.response.defer()
         
-        voice_channel = interaction.user.voice.channel
-        if voice_channel is None:
+        if interaction.user.voice is None:
             await interaction.followup.send("Connect to a voice channel!")
             return
+        voice_channel = interaction.user.voice.channel
 
         # Send initial message
         await interaction.followup.send("Adding songs to the queue...")

@@ -12,7 +12,8 @@
 
 ## Required Libraries
 
-- discord
+- discord.py (2.7.1+ with voice support)
+- davey (required for voice connections in discord.py 2.7+)
 - FFMPEG
 - python-dotenv
 - yt_dlp
