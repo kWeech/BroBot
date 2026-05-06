@@ -1,4 +1,3 @@
-from ast import alias
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -17,15 +16,20 @@ class music_cog(commands.Cog):
         # 2d array containing [song, channel]
         self.music_queue = []
         self.ydl_opts = {
-            'format': 'm4a/bestaudio/best',
+            'format': 'bestaudio/best',
             'noplaylist': False,
             'ignoreerrors': True,
-            'extract_flat': False,  # Ensure full info is extracted
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'm4a',
-            }],
-            'playlistend': 50,  # Limit playlist extraction to 50 items
+            'quiet': True,
+            'no_warnings': True,
+        }
+        self.playlist_ydl_opts = {
+            **self.ydl_opts,
+            'extract_flat': 'in_playlist',
+        }
+        self.track_ydl_opts = {
+            **self.ydl_opts,
+            'extract_flat': False,
+            'noplaylist': True,
         }
 
         self.FFMPEG_OPTIONS = {
@@ -35,20 +39,71 @@ class music_cog(commands.Cog):
 
         self.vc = None
         
+    def _entry_to_song(self, entry):
+        if not entry:
+            return None
+
+        title = entry.get('title') or 'Unknown Title'
+        source = entry.get('webpage_url') or entry.get('original_url')
+        if not source:
+            video_id = entry.get('id') or entry.get('url')
+            if isinstance(video_id, str) and video_id:
+                source = f"https://www.youtube.com/watch?v={video_id}"
+
+        if not source:
+            return None
+
+        return {'source': source, 'title': title}
+
     def _blocking_search_yt(self, item):
-        with YoutubeDL(self.ydl_opts) as ydl:
-            if "list" in item:
+        if "list=" in item:
+            with YoutubeDL(self.playlist_ydl_opts) as ydl:
                 info = ydl.extract_info(item, download=False)
-                playlist = []
-                for entry in info['entries']:
-                    if entry:  # Ensure entry is not None
-                        playlist.append({'source': entry['url'], 'title': entry['title']})
-                        print(f"Added {entry['title']} to the queue")
-                return playlist
-            else:
-                info = ydl.extract_info(f"ytsearch:{item}", download=False)
-                info = info['entries'][0]
-                return [{'source': info['url'], 'title': info['title']}]
+
+            playlist = []
+            for entry in info.get('entries', []):
+                song = self._entry_to_song(entry)
+                if song:
+                    playlist.append(song)
+                    print(f"Added {song['title']} to the queue")
+            return playlist
+
+        with YoutubeDL(self.track_ydl_opts) as ydl:
+            if item.startswith(("http://", "https://")):
+                info = ydl.extract_info(item, download=False)
+                song = self._entry_to_song(info)
+                return [song] if song else []
+
+            info = ydl.extract_info(f"ytsearch:{item}", download=False)
+            entries = info.get('entries') or []
+            if not entries:
+                return []
+
+            song = self._entry_to_song(entries[0])
+            return [song] if song else []
+
+    def _blocking_resolve_stream(self, song):
+        with YoutubeDL(self.track_ydl_opts) as ydl:
+            info = ydl.extract_info(song['source'], download=False)
+
+        if not info:
+            raise RuntimeError(f"Could not load audio for {song['title']}")
+
+        stream_url = info.get('url')
+        if not stream_url:
+            requested_formats = info.get('requested_formats') or []
+            for fmt in requested_formats:
+                if fmt and fmt.get('url'):
+                    stream_url = fmt['url']
+                    break
+
+        if not stream_url:
+            raise RuntimeError(f"No playable stream found for {song['title']}")
+
+        return stream_url
+
+    def _requeue_song_front(self, song, voice_channel):
+        self.music_queue.insert(0, [song, voice_channel])
 
         
     async def search_yt(self, item):
@@ -82,42 +137,76 @@ class music_cog(commands.Cog):
     #             print(f"Error processing item: {e}")
     #             return False
 
-    def play_next(self):
-        if len(self.music_queue) > 0:
-            self.is_playing = True
+    def _after_song(self, error):
+        if error:
+            print(f"Playback error: {error}")
 
-            #get the first url
-            m_url = self.music_queue[0][0]['source']
+        future = asyncio.run_coroutine_threadsafe(self.play_music(), self.bot.loop)
 
-            #remove the first element as you are currently playing it
-            self.music_queue.pop(0)
+        def _log_future_result(task):
+            exc = task.exception()
+            if exc:
+                print(f"Error while starting the next song: {exc}")
 
-            self.vc.play(discord.FFmpegPCMAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next())
-        else:
-            self.is_playing = False
+        future.add_done_callback(_log_future_result)
+
+    async def play_next(self):
+        await self.play_music()
 
     # infinite loop checking 
-    async def play_music(self, ctx):
+    async def play_music(self, interaction: discord.Interaction | None = None):
         if len(self.music_queue) > 0:
             self.is_playing = True
+            song, voice_channel = self.music_queue.pop(0)
 
-            m_url = self.music_queue[0][0]['source']
-            
             #try to connect to voice channel if you are not already connected
+            try:
+                if self.vc == None or not self.vc.is_connected():
+                    self.vc = await voice_channel.connect()
+
+                    #in case we fail to connect
+                    if self.vc == None or not self.vc.is_connected():
+                        self._requeue_song_front(song, voice_channel)
+                        if interaction is not None:
+                            await interaction.followup.send("Could not connect to the voice channel.")
+                        self.is_playing = False
+                        return
+                else:
+                    await self.vc.move_to(voice_channel)
+            except Exception as e:
+                print(f"Voice connection error: {e}")
+                self._requeue_song_front(song, voice_channel)
+                if interaction is not None:
+                    await interaction.followup.send("Voice connection failed before playback started.")
+                self.is_playing = False
+                return
+
+            # Only resolve the stream when the song is about to play.
+            loop = asyncio.get_running_loop()
+            try:
+                m_url = await loop.run_in_executor(None, self._blocking_resolve_stream, song)
+            except Exception as e:
+                print(f"Error loading stream for {song['title']}: {e}")
+                if interaction is not None:
+                    await interaction.followup.send(f"Could not load **{song['title']}**. Skipping it.")
+                await self.play_music(interaction)
+                return
+
             if self.vc == None or not self.vc.is_connected():
-                self.vc = await self.music_queue[0][1].connect()
+                self._requeue_song_front(song, voice_channel)
+                if interaction is not None:
+                    await interaction.followup.send("Lost the voice connection before playback started.")
+                self.is_playing = False
+                return
 
-                #in case we fail to connect
-                if self.vc == None:
-                    await ctx.send("Could not connect to the voice channel")
-                    return
-            else:
-                await self.vc.move_to(self.music_queue[0][1])
-            
-            #remove the first element as you are currently playing it
-            self.music_queue.pop(0)
-
-            self.vc.play(discord.FFmpegPCMAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next())
+            try:
+                self.vc.play(discord.FFmpegPCMAudio(m_url, **self.FFMPEG_OPTIONS), after=self._after_song)
+            except discord.ClientException as e:
+                print(f"Playback start error: {e}")
+                self._requeue_song_front(song, voice_channel)
+                if interaction is not None:
+                    await interaction.followup.send("Connected to voice, but playback could not start.")
+                self.is_playing = False
         else:
             self.is_playing = False
     
@@ -151,7 +240,7 @@ class music_cog(commands.Cog):
         await interaction.followup.send(f"Added {total_songs} songs to the queue:\n{songs_list}")
         
         if not self.is_playing:
-            await self.play_music(interaction.response)
+            await self.play_music(interaction)
         
     @app_commands.command(name="play")
     @app_commands.describe(query='The song you want to play', play_next='Set to True to play this song next', shuffle='Set to True to shuffle the playlist')
