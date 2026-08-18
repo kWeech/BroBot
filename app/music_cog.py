@@ -16,11 +16,23 @@ class music_cog(commands.Cog):
         # 2d array containing [song, channel]
         self.music_queue = []
         self.ydl_opts = {
-            'format': 'bestaudio/best',
+            # YouTube currently rejects direct audio from its default
+            # android_vr client. The Android client's combined format 18
+            # remains playable; FFmpeg discards its video stream below.
+            'format': '18/bestaudio/best',
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android'],
+                },
+            },
             'noplaylist': False,
             'ignoreerrors': True,
             'quiet': True,
-            'no_warnings': True,
+            'no_warnings': False,
+            'js_runtimes': {
+                'deno': {},
+                'node': {},
+            },
         }
         self.playlist_ydl_opts = {
             **self.ydl_opts,
